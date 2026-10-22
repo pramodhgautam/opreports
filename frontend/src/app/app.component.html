@@ -1,0 +1,35 @@
+<header class="shell">
+  <span class="brand">Ops Reporting Portal</span>
+  <nav>
+    <a routerLink="/dashboard">Dashboard</a>
+    <a routerLink="/admin">Admin</a>
+  </nav>
+
+  @if (isAuthenticated()) {
+    <div class="user">
+      <span>{{ user()?.name ?? user()?.email ?? 'Signed in' }}</span>
+      <button type="button" (click)="logout()">Logout</button>
+    </div>
+  } @else {
+    <button type="button" (click)="login()">Login</button>
+  }
+</header>
+
+<main>
+  <router-outlet />
+</main>
+
+<section class="whoami-card">
+  <h2>whoami <small>(debug)</small></h2>
+  <button type="button" (click)="refreshWhoami()">Refresh</button>
+
+  @if (whoami(); as profile) {
+    <p><strong>Email:</strong> {{ profile.email }}</p>
+    <p><strong>Roles:</strong> {{ profile.roles.join(', ') || '(none)' }}</p>
+    <p><strong>Permissions:</strong> {{ profile.permissions.join(', ') || '(none)' }}</p>
+  } @else if (whoamiError()) {
+    <p class="error">{{ whoamiError() }}</p>
+  } @else {
+    <p>Loading…</p>
+  }
+</section>

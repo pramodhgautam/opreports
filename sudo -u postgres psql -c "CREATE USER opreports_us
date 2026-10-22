@@ -1,0 +1,67 @@
+sudo -u postgres psql -c "CREATE USER opreports_user WITH PASSWORD 'ChangeMe123!';"
+sudo -u postgres psql -c "CREATE DATABASE opreports OWNER opreports_user;"
+
+
+
+mkdir -p ~/opreports && cat > ~/opreports/schema.sql << 'EOF'
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Users table (stores local user profiles, linked to IdP subject ID)
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    idp_subject VARCHAR(255) UNIQUE NOT NULL, -- 'sub' claim from OIDC ID Token
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Roles (e.g., 'ADMIN', 'OPERATIONS_MANAGER', 'VIEWER')
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT
+);
+
+-- Permissions (e.g., 'report:read', 'report:export', 'user:manage')
+CREATE TABLE permissions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT
+);
+
+-- Mapping Tables
+CREATE TABLE user_roles (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
+);
+
+CREATE TABLE role_permissions (
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+EOF
+
+
+
+PGPASSWORD='ChangeMe123!' psql -h localhost -U opreports_user -d opreports -f ~/opreports/schema.sql
+
+
+
+CREATE ROLE opreports_app WITH LOGIN PASSWORD 'choose-a-strong-password';
+GRANT CONNECT ON DATABASE opreports TO opreports_app;
+GRANT USAGE ON SCHEMA public TO opreports_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO opreports_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO opreports_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO opreports_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO opreports_app;
+
+
+
+  DATABASE_URL=postgresql://opreports_app:<password>@localhost:5432/opreports
+
+
+<password>: choose-a-strong-password
